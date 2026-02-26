@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   if (profile?.role !== 'super_admin') return NextResponse.json({ error: 'Only admins can record direct payments' }, { status: 403 });
 
   const body = await req.json();
-  const { customer_id, emi_ids, mode, notes, total_emi_amount, fine_amount, first_emi_charge_amount, total_amount } = body;
+  const { customer_id, emi_ids, emi_amounts, mode, notes, total_emi_amount, fine_amount, first_emi_charge_amount, total_amount } = body;
 
   if (!customer_id || !emi_ids?.length || !mode) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -49,21 +49,33 @@ export async function POST(req: NextRequest) {
     payment_request_id: request.id,
     emi_schedule_id: emi.id,
     emi_no: emi.emi_no,
-    amount: emi.amount,
+    amount: Number(emi_amounts?.[(emis || []).findIndex((x:any)=>x.id===emi.id)] ?? emi.amount),
   }));
   await serviceClient.from('payment_request_items').insert(items);
 
   // Approve EMIs directly
-  await serviceClient.from('emi_schedule').update({
-    status: 'APPROVED',
-    paid_at: now,
-    mode,
-    approved_by: user.id,
-  }).in('id', emi_ids);
+  for (const emi of (emis || [])) {
+    const paidNow = Number(emi_amounts?.[(emis || []).findIndex((x:any)=>x.id===emi.id)] ?? emi.amount);
+    const nextPaid = Number(emi.paid_amount || 0) + paidNow;
+    await serviceClient.from('emi_schedule').update({
+      paid_amount: nextPaid,
+      status: nextPaid >= Number(emi.amount) ? 'APPROVED' : 'UNPAID',
+      paid_at: nextPaid >= Number(emi.amount) ? now : null,
+      mode,
+      approved_by: user.id,
+      collected_by_role: 'admin',
+      collected_by_user_id: user.id,
+    }).eq('id', emi.id);
+  }
 
   // Mark first EMI charge paid if applicable
   if (first_emi_charge_amount > 0) {
-    await serviceClient.from('customers').update({ first_emi_charge_paid_at: now }).eq('id', customer_id);
+    const { data: c } = await serviceClient.from('customers').select('first_emi_charge_paid_amount, first_emi_charge_amount').eq('id', customer_id).single();
+    const next = Number(c?.first_emi_charge_paid_amount || 0) + Number(first_emi_charge_amount);
+    await serviceClient.from('customers').update({
+      first_emi_charge_paid_amount: next,
+      first_emi_charge_paid_at: next >= Number(c?.first_emi_charge_amount || 0) ? now : null,
+    }).eq('id', customer_id);
   }
 
   // Audit log

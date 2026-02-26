@@ -7,6 +7,7 @@ export async function POST(req: NextRequest) {
     customer_id,
     emi_ids,
     emi_nos,
+    emi_amounts,
     mode,
     notes,
     retail_pin,
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
     payment_request_id: request.id,
     emi_schedule_id,                          // ✅ matches schema column name
     emi_no: emi_nos[i],
-    amount: parseFloat(total_emi_amount) / emi_ids.length,
+    amount: Number(emi_amounts?.[i] ?? (parseFloat(total_emi_amount) / emi_ids.length)),
   }));
   const { error: itemsErr } = await serviceClient.from('payment_request_items').insert(items);
   if (itemsErr) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient, createClient } from '@/lib/supabase/server';
+import crypto from 'crypto';
 
 // POST — Create new retailer
 export async function POST(req: NextRequest) {
@@ -8,7 +9,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
   const body = await req.json();
-  const { name, username, password, retail_pin } = body;
+  const { name, username, password, retail_pin, mobile } = body;
 
   if (!name || !username || !password) {
     return NextResponse.json({ error: 'name, username and password are required' }, { status: 400 });
@@ -36,6 +37,8 @@ export async function POST(req: NextRequest) {
       name,
       username: username.toLowerCase(),
       retail_pin: retail_pin || null,
+      pin_hash: retail_pin ? crypto.createHash('sha256').update(String(retail_pin)).digest('hex') : crypto.createHash('sha256').update(String(password)).digest('hex'),
+      mobile: mobile || null,
       is_active: true,
     })
     .select()
@@ -60,7 +63,7 @@ export async function PATCH(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
   const body = await req.json();
-  const { id, name, password, retail_pin, is_active } = body;
+  const { id, name, password, retail_pin, is_active, mobile } = body;
   if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
 
   const serviceClient = createServiceClient();
@@ -78,7 +81,11 @@ export async function PATCH(req: NextRequest) {
   // Build update payload
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (name !== undefined) updates.name = name;
-  if (retail_pin !== undefined) updates.retail_pin = retail_pin;
+  if (retail_pin !== undefined) {
+    updates.retail_pin = retail_pin;
+    updates.pin_hash = crypto.createHash('sha256').update(String(retail_pin)).digest('hex');
+  }
+  if (mobile !== undefined) updates.mobile = mobile;
   if (is_active !== undefined) updates.is_active = is_active;
 
   const { error: dbErr } = await serviceClient.from('retailers').update(updates).eq('id', id);

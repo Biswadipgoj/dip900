@@ -180,7 +180,7 @@ export default function RetailerDashboard() {
                             </td>
                             <td className="text-xs text-ink-muted">{format(new Date(r.created_at), 'd MMM, h:mm a')}</td>
                             <td>
-                              <Link href={`/receipt/${r.id}`} target="_blank" className="text-xs text-info hover:text-info">
+                              <Link href={`/api/receipt/${r.id}`} target="_blank" className="text-xs text-info hover:text-info">
                                 Receipt →
                               </Link>
                             </td>

@@ -55,32 +55,41 @@ export async function POST(req: NextRequest) {
   const now = new Date().toISOString();
 
   // ── STEP 1: Mark all linked EMIs as APPROVED ──────────────────────────────
-  const { error: emiErr } = await serviceClient
-    .from('emi_schedule')
-    .update({
-      status: 'APPROVED',
-      paid_at: now,
-      mode: request.mode,
-      approved_by: user.id,
-      collected_by_role: 'retailer',
-      collected_by_user_id: request.submitted_by,
-    })
-    .in('id', emiIds);
+  for (const item of items) {
+    const { data: emi } = await serviceClient.from('emi_schedule').select('id, amount, paid_amount').eq('id', item.emi_schedule_id).single();
+    const nextPaid = Number(emi?.paid_amount || 0) + Number(item.amount || 0);
+    const { error: emiErr } = await serviceClient
+      .from('emi_schedule')
+      .update({
+        paid_amount: nextPaid,
+        status: nextPaid >= Number(emi?.amount || 0) ? 'APPROVED' : 'UNPAID',
+        paid_at: nextPaid >= Number(emi?.amount || 0) ? now : null,
+        mode: request.mode,
+        approved_by: user.id,
+        collected_by_role: 'retailer',
+        collected_by_user_id: request.submitted_by,
+      })
+      .eq('id', item.emi_schedule_id);
 
-  if (emiErr) {
-    console.error('Failed to update emi_schedule:', emiErr);
-    return NextResponse.json({ error: 'Failed to mark EMIs as paid: ' + emiErr.message }, { status: 500 });
+    if (emiErr) {
+      console.error('Failed to update emi_schedule:', emiErr);
+      return NextResponse.json({ error: 'Failed to mark EMIs as paid: ' + emiErr.message }, { status: 500 });
+    }
   }
 
-  console.log('EMI schedule updated to APPROVED for IDs:', emiIds);
+  console.log('EMI schedule updated for IDs:', emiIds);
 
   // ── STEP 2: Mark first EMI charge paid if included ────────────────────────
   if ((request.first_emi_charge_amount ?? 0) > 0) {
+    const { data: c } = await serviceClient.from('customers').select('first_emi_charge_paid_amount, first_emi_charge_amount').eq('id', request.customer_id).single();
+    const next = Number(c?.first_emi_charge_paid_amount || 0) + Number(request.first_emi_charge_amount || 0);
     const { error: chargeErr } = await serviceClient
       .from('customers')
-      .update({ first_emi_charge_paid_at: now })
-      .eq('id', request.customer_id)
-      .is('first_emi_charge_paid_at', null);   // idempotent — only if not already set
+      .update({
+        first_emi_charge_paid_amount: next,
+        first_emi_charge_paid_at: next >= Number(c?.first_emi_charge_amount || 0) ? now : null,
+      })
+      .eq('id', request.customer_id);   // idempotent — only if not already set
 
     if (chargeErr) {
       console.error('Failed to mark first_emi_charge paid:', chargeErr);
