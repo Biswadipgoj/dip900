@@ -20,8 +20,7 @@ export default function CustomerPortal() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    if (aadhaar.length !== 12) { toast.error('Aadhaar must be 12 digits'); return; }
-    if (mobile.length !== 10) { toast.error('Mobile must be 10 digits'); return; }
+    if (aadhaar.length !== 12 && mobile.length !== 10) { toast.error('Enter Aadhaar or Mobile'); return; }
     setLoading(true);
     try {
       const res = await fetch('/api/customer-login', {
@@ -75,7 +74,7 @@ export default function CustomerPortal() {
 
           <div className="card p-8 shadow-2xl shadow-black/40">
             <p className="text-xs text-slate-500 text-center mb-6 tracking-wide">
-              Login using your Aadhaar and registered mobile number
+              Login using Aadhaar or registered mobile number
             </p>
             <form onSubmit={handleLogin} className="space-y-5">
               <div>
@@ -101,7 +100,7 @@ export default function CustomerPortal() {
                   className="form-input"
                 />
               </div>
-              <button type="submit" disabled={loading || aadhaar.length !== 12 || mobile.length !== 10} className="btn-primary w-full py-3.5 text-base mt-2">
+              <button type="submit" disabled={loading || (aadhaar.length !== 12 && mobile.length !== 10)} className="btn-primary w-full py-3.5 text-base mt-2">
                 {loading ? 'Verifying...' : 'View My Account'}
               </button>
             </form>

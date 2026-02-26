@@ -168,12 +168,9 @@ export default function PaymentModal({ customer, emis, breakdown, onClose, onSub
             </button>
 
             {/* View full receipt */}
-            <button
-              onClick={() => { window.open(`/receipt/${receiptId}`, '_blank'); }}
-              className="btn-secondary w-full py-2.5"
-            >
-              🧾 View / Print Full Receipt
-            </button>
+            <a href={`/api/receipt/${receiptId}`} className="btn-secondary w-full py-2.5 text-center block">
+              🧾 Download Receipt
+            </a>
 
             <button onClick={() => { onSubmitted(); onClose(); }} className="btn-ghost w-full py-2.5">
               Close
@@ -333,7 +330,7 @@ export default function PaymentModal({ customer, emis, breakdown, onClose, onSub
               <label className="label">Retail PIN *</label>
               <input type="password" value={retailerPin} onChange={e => setRetailerPin(e.target.value)}
                 placeholder="Enter your 4–6 digit Retail PIN" inputMode="numeric"
-                className="input" autoComplete="off" />
+                className="input" autoComplete="one-time-code" />
               <p className="text-xs text-ink-muted mt-1">Separate from your login password</p>
             </div>
           )}

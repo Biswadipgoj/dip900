@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { createHash } from 'crypto';
+
+function hashPin(pin: string) {
+  return createHash('sha256').update(pin).digest('hex');
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -32,14 +37,15 @@ export async function POST(req: NextRequest) {
   // Verify retail PIN
   const { data: retailer } = await serviceClient
     .from('retailers')
-    .select('id, retail_pin, is_active')
+    .select('id, retail_pin, pin_hash, is_active')
     .eq('auth_user_id', user.id)
     .single();
 
   if (!retailer || !retailer.is_active) {
     return NextResponse.json({ error: 'Retailer account is inactive' }, { status: 403 });
   }
-  if (retailer.retail_pin !== retail_pin) {
+  const pinMatches = retailer.pin_hash ? retailer.pin_hash === hashPin(retail_pin) : retailer.retail_pin === retail_pin;
+  if (!pinMatches) {
     return NextResponse.json({ error: 'Incorrect Retailer PIN' }, { status: 401 });
   }
 

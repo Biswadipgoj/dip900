@@ -5,17 +5,15 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { aadhaar, mobile } = body;
 
-  if (!aadhaar || aadhaar.length !== 12) {
-    return NextResponse.json({ error: 'Aadhaar must be exactly 12 digits' }, { status: 400 });
-  }
-  if (!mobile || mobile.length !== 10) {
-    return NextResponse.json({ error: 'Mobile must be exactly 10 digits' }, { status: 400 });
+  const cleanAadhaar = (aadhaar || '').replace(/\D/g, '');
+  const cleanMobile = (mobile || '').replace(/\D/g, '');
+  if (cleanAadhaar.length !== 12 && cleanMobile.length !== 10) {
+    return NextResponse.json({ error: 'Provide valid Aadhaar (12 digits) OR Mobile (10 digits)' }, { status: 400 });
   }
 
   const serviceClient = createServiceClient();
 
-  // Both aadhaar AND mobile must match the same record — server-side only
-  const { data: customer, error } = await serviceClient
+  let query = serviceClient
     .from('customers')
     .select(`
       id, customer_name, father_name, aadhaar, mobile,
@@ -24,16 +22,18 @@ export async function POST(req: NextRequest) {
       purchase_date, emi_due_day, emi_amount, emi_tenure,
       first_emi_charge_amount, first_emi_charge_paid_at,
       customer_photo_url, status,
-      retailer:retailers(name)
+      retailer:retailers(name, mobile)
     `)
-    .eq('aadhaar', aadhaar)
-    .eq('mobile', mobile)
-    .eq('status', 'RUNNING')
-    .single();
+    .eq('status', 'RUNNING');
+
+  if (cleanAadhaar.length === 12) query = query.eq('aadhaar', cleanAadhaar);
+  else query = query.eq('mobile', cleanMobile);
+
+  const { data: customer, error } = await query.single();
 
   if (error || !customer) {
     return NextResponse.json(
-      { error: 'No matching customer found. Check your Aadhaar and Mobile number.' },
+      { error: 'No matching running customer found.' },
       { status: 401 }
     );
   }
