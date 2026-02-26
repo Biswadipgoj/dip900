@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Customer, EMISchedule, DueBreakdown } from '@/lib/types';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -32,6 +32,9 @@ export default function PaymentModal({ customer, emis, breakdown, onClose, onSub
   const [retailerPin, setRetailerPin] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [emiPaidAmount, setEmiPaidAmount] = useState<number>(0);
+  const [finePaidAmount, setFinePaidAmount] = useState<number>(0);
+  const [firstChargePaidAmount, setFirstChargePaidAmount] = useState<number>(0);
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptId, setReceiptId] = useState('');
@@ -40,7 +43,12 @@ export default function PaymentModal({ customer, emis, breakdown, onClose, onSub
   const emiAmount = selectedEmi?.amount ?? 0;
   const fineAmount = breakdown.fine_due;
   const firstEmiCharge = breakdown.first_emi_charge_due;
-  const totalPayable = emiAmount + fineAmount + firstEmiCharge;
+  useEffect(() => {
+    setEmiPaidAmount(emiAmount);
+    setFinePaidAmount(fineAmount);
+    setFirstChargePaidAmount(firstEmiCharge);
+  }, [emiAmount, fineAmount, firstEmiCharge, selectedEmiNo]);
+  const totalPayable = useMemo(() => (emiPaidAmount || 0) + (finePaidAmount || 0) + (firstChargePaidAmount || 0), [emiPaidAmount, finePaidAmount, firstChargePaidAmount]);
 
   // Generate QR when UPI selected — uses correct UPI ID
   useEffect(() => {
@@ -70,12 +78,13 @@ export default function PaymentModal({ customer, emis, breakdown, onClose, onSub
           customer_id: customer.id,
           emi_ids: [selectedEmi.id],
           emi_nos: [selectedEmi.emi_no],
+          emi_amounts: [emiPaidAmount || 0],
           mode,
           notes: notes || null,
           retail_pin: isAdmin ? undefined : retailerPin,
-          total_emi_amount: emiAmount,
-          fine_amount: fineAmount,
-          first_emi_charge_amount: firstEmiCharge,
+          total_emi_amount: emiPaidAmount || 0,
+          fine_amount: finePaidAmount || 0,
+          first_emi_charge_amount: firstChargePaidAmount || 0,
           total_amount: totalPayable,
         }),
       });
@@ -102,7 +111,7 @@ export default function PaymentModal({ customer, emis, breakdown, onClose, onSub
   if (showReceipt && receiptId) {
     const now = new Date();
     return (
-      <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) { onSubmitted(); onClose(); } }}>
+      <div className="modal-backdrop" onMouseDown={(e)=>{ if (e.target===e.currentTarget) e.preventDefault(); }} onClick={e => { if (e.target === e.currentTarget) { onSubmitted(); onClose(); } }}>
         <div className="modal-panel max-w-sm mx-auto animate-scale-in">
           {/* Receipt header */}
           <div className="bg-brand-500 px-6 py-5 text-center">
@@ -169,7 +178,7 @@ export default function PaymentModal({ customer, emis, breakdown, onClose, onSub
 
             {/* View full receipt */}
             <button
-              onClick={() => { window.open(`/receipt/${receiptId}`, '_blank'); }}
+              onClick={() => { window.open(`/api/receipt/${receiptId}`, '_blank'); }}
               className="btn-secondary w-full py-2.5"
             >
               🧾 View / Print Full Receipt
@@ -268,6 +277,21 @@ export default function PaymentModal({ customer, emis, breakdown, onClose, onSub
             )}
           </div>
 
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="label">EMI collect</label>
+              <input className="input" inputMode="decimal" value={emiPaidAmount} onChange={(e) => setEmiPaidAmount(Math.max(0, Number(e.target.value || 0)))} />
+            </div>
+            <div>
+              <label className="label">Fine collect</label>
+              <input className="input" inputMode="decimal" value={finePaidAmount} onChange={(e) => setFinePaidAmount(Math.max(0, Number(e.target.value || 0)))} />
+            </div>
+            <div>
+              <label className="label">1st charge collect</label>
+              <input className="input" inputMode="decimal" value={firstChargePaidAmount} onChange={(e) => setFirstChargePaidAmount(Math.max(0, Number(e.target.value || 0)))} />
+            </div>
+          </div>
           {/* Mode selector */}
           <div>
             <label className="label">Payment Mode</label>

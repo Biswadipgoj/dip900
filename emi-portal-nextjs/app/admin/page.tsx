@@ -133,6 +133,10 @@ export default function AdminDashboard() {
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showSettlementModal, setShowSettlementModal] = useState(false);
+  const [settlementAmount, setSettlementAmount] = useState('');
+  const [settlementDate, setSettlementDate] = useState(new Date().toISOString().split('T')[0]);
+  const [settlementNote, setSettlementNote] = useState('');
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [completeRemark, setCompleteRemark] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -338,6 +342,24 @@ export default function AdminDashboard() {
   function clearFilter() {
     setActiveFilter(null);
     setFilteredEmis(null);
+  }
+
+
+  async function handleSettleCustomer() {
+    if (!selectedCustomer) return;
+    if (!settlementAmount || Number(settlementAmount) <= 0) { toast.error('Settlement amount required'); return; }
+    const res = await fetch('/api/customers/settle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customer_id: selectedCustomer.id, settlement_amount_collected: Number(settlementAmount), settlement_date: settlementDate, note: settlementNote || null }),
+    });
+    const data = await res.json();
+    if (!res.ok) { toast.error(data.error || 'Settlement failed'); return; }
+    toast.success('Customer settled successfully');
+    setShowSettlementModal(false);
+    setSettlementAmount('');
+    setSettlementNote('');
+    await refreshSelectedCustomer();
   }
 
   const paidCount = customerEmis.filter((e) => e.status === 'APPROVED').length;
@@ -770,6 +792,29 @@ export default function AdminDashboard() {
             <div className="flex gap-3">
               <button onClick={() => setShowCompleteModal(false)} className="btn-ghost flex-1">Cancel</button>
               <button onClick={handleMarkComplete} className="btn-success flex-1">Confirm Complete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {showSettlementModal && selectedCustomer && breakdown && (
+        <div className="modal-backdrop">
+          <div className="card w-full max-w-md p-6 animate-slide-up">
+            <h3 className="font-display text-xl font-bold text-ink mb-2">Settle Customer</h3>
+            <p className="text-sm text-ink-muted mb-4">This will move customer to EMI COMPLETE and mark as SETTLED.</p>
+            <div className="card bg-surface-2 p-3 mb-4 text-sm">
+              <p>Remaining EMI + fine + 1st charge summary</p>
+              <p className="num font-bold mt-1">{fmt((breakdown.total_payable || 0))}</p>
+            </div>
+            <div className="space-y-3">
+              <input className="form-input" placeholder="Settlement amount collected" inputMode="decimal" value={settlementAmount} onChange={(e)=>setSettlementAmount(e.target.value)} />
+              <input className="form-input" type="date" value={settlementDate} onChange={(e)=>setSettlementDate(e.target.value)} />
+              <textarea className="form-input" rows={3} placeholder="Optional note/reason" value={settlementNote} onChange={(e)=>setSettlementNote(e.target.value)} />
+            </div>
+            <div className="flex gap-3 mt-4">
+              <button onClick={() => setShowSettlementModal(false)} className="btn-ghost flex-1">Cancel</button>
+              <button onClick={handleSettleCustomer} className="btn-danger flex-1">Confirm Settlement</button>
             </div>
           </div>
         </div>

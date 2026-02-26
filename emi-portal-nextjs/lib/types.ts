@@ -11,6 +11,7 @@ export interface Retailer {
   auth_user_id: string;
   name: string;
   username: string;
+  mobile?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -47,10 +48,22 @@ export interface Customer {
   aadhaar_back_url?: string;
   bill_photo_url?: string;
   status: 'RUNNING' | 'COMPLETE';
+  is_settled?: boolean;
+  settled_at?: string;
   completion_remark?: string;
   completion_date?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface CustomerSettlement {
+  id: string;
+  customer_id: string;
+  settlement_amount_collected: number;
+  settlement_date: string;
+  note?: string;
+  settled_by_user_id: string;
+  settled_at: string;
 }
 
 export interface EMISchedule {
@@ -64,6 +77,8 @@ export interface EMISchedule {
   mode?: 'CASH' | 'UPI';
   approved_by?: string;
   fine_amount: number;
+  paid_amount?: number;
+  fine_paid_amount?: number;
   fine_waived: boolean;
   collected_by_role?: 'admin' | 'retailer';
   collected_by_user_id?: string;

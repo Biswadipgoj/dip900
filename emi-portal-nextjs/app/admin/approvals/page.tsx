@@ -264,7 +264,7 @@ export default function ApprovalsPage() {
                       ) : null}
                     </div>
                     <Link
-                      href={`/receipt/${req.id}`}
+                      href={`/api/receipt/${req.id}`}
                       target="_blank"
                       className="text-xs text-info hover:text-info underline underline-offset-4 shrink-0"
                     >
