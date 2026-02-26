@@ -11,6 +11,7 @@ export interface Retailer {
   auth_user_id: string;
   name: string;
   username: string;
+  mobile?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -47,6 +48,7 @@ export interface Customer {
   aadhaar_back_url?: string;
   bill_photo_url?: string;
   status: 'RUNNING' | 'COMPLETE';
+  is_settled?: boolean;
   completion_remark?: string;
   completion_date?: string;
   created_at: string;

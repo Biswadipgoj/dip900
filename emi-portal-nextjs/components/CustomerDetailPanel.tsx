@@ -4,7 +4,6 @@ import { Customer, Retailer } from '@/lib/types';
 import { format } from 'date-fns';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import Link from 'next/link';
 
 interface Props {
   customer: Customer;
@@ -107,7 +106,7 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
               {customer.father_name && <p className="text-ink-muted text-sm">C/O {customer.father_name}</p>}
             </div>
             <span className={`badge ${customer.status === 'RUNNING' ? 'badge-green' : 'badge-blue'}`}>
-              {customer.status === 'RUNNING' ? '● Running' : '✓ Complete'}
+              {customer.status === 'RUNNING' ? '● Running' : customer.is_settled ? '⚠ EMI Settled' : '✓ Complete'}
             </span>
           </div>
 
@@ -164,14 +163,19 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
             {/* Admin NOC/Bill */}
             {isAdmin && (
               <>
-                <Link href={`/noc/${customer.id}?type=noc`} target="_blank"
+                <a href={`/api/noc/${customer.id}`}
                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-info-border bg-info-light text-info text-xs font-medium hover:opacity-80 transition-opacity">
                   📄 NOC
-                </Link>
-                <Link href={`/noc/${customer.id}?type=bill`} target="_blank"
+                </a>
+                <a href={`/api/bill/${customer.id}`}
                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-info-border bg-info-light text-info text-xs font-medium hover:opacity-80 transition-opacity">
                   🧾 Bill
-                </Link>
+                </a>
+                {customer.is_settled && (
+                  <a href={`/api/settlement-letter/${customer.id}`} className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-warning-border bg-warning-light text-warning text-xs font-medium hover:opacity-80 transition-opacity">
+                    📜 Settlement Letter
+                  </a>
+                )}
               </>
             )}
           </div>

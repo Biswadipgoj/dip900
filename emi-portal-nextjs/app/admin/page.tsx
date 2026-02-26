@@ -137,9 +137,13 @@ export default function AdminDashboard() {
   const [completeRemark, setCompleteRemark] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteRemark, setDeleteRemark] = useState('');
+  const [showSettlementModal, setShowSettlementModal] = useState(false);
+  const [settlementAmount, setSettlementAmount] = useState('');
+  const [settlementDate, setSettlementDate] = useState(new Date().toISOString().split('T')[0]);
+  const [settlementNote, setSettlementNote] = useState('');
   const [showRetailerForm, setShowRetailerForm] = useState(false);
   const [editingRetailer, setEditingRetailer] = useState<Retailer | null>(null);
-  const [retailerForm, setRetailerForm] = useState({ name: '', username: '', password: '', retail_pin: '' });
+  const [retailerForm, setRetailerForm] = useState({ name: '', username: '', password: '', retail_pin: '', mobile: '' });
   const [fineSettings, setFineSettings] = useState({ default_fine_amount: 450 });
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -249,12 +253,41 @@ export default function AdminDashboard() {
     }
   }
 
+  async function handleSettlement() {
+    if (!selectedCustomer) return;
+    if (!settlementAmount || Number(settlementAmount) <= 0) {
+      toast.error('Settlement amount is required');
+      return;
+    }
+
+    const res = await fetch('/api/settlements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer_id: selectedCustomer.id,
+        settlement_amount_collected: Number(settlementAmount),
+        settlement_date: settlementDate,
+        note: settlementNote || null,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.error || 'Failed to settle customer');
+      return;
+    }
+    toast.success('Customer settled successfully');
+    setShowSettlementModal(false);
+    setSettlementAmount('');
+    setSettlementNote('');
+    await refreshSelectedCustomer();
+  }
+
   async function handleRetailerSubmit(e: React.FormEvent) {
     e.preventDefault();
     const method = editingRetailer ? 'PATCH' : 'POST';
     const body = editingRetailer
-      ? { id: editingRetailer.id, name: retailerForm.name, ...(retailerForm.password && { password: retailerForm.password }), ...(retailerForm.retail_pin && { retail_pin: retailerForm.retail_pin }) }
-      : { name: retailerForm.name, username: retailerForm.username, password: retailerForm.password, retail_pin: retailerForm.retail_pin };
+      ? { id: editingRetailer.id, name: retailerForm.name, mobile: retailerForm.mobile, ...(retailerForm.password && { password: retailerForm.password }), ...(retailerForm.retail_pin && { retail_pin: retailerForm.retail_pin }) }
+      : { name: retailerForm.name, username: retailerForm.username, password: retailerForm.password, retail_pin: retailerForm.retail_pin, mobile: retailerForm.mobile };
 
     const res = await fetch('/api/retailers', { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const data = await res.json();
@@ -455,6 +488,11 @@ export default function AdminDashboard() {
                         ✓ Mark Complete
                       </button>
                     )}
+                    {selectedCustomer.status === 'RUNNING' && (
+                      <button onClick={() => setShowSettlementModal(true)} className="btn-warning">
+                        ⚠ Settle Customer
+                      </button>
+                    )}
                     <button onClick={() => setShowPaymentModal(true)} className="btn-primary">
                       💳 Record Payment
                     </button>
@@ -486,7 +524,7 @@ export default function AdminDashboard() {
                 <p className="text-ink-muted text-sm mt-1">{retailers.length} retailers registered</p>
               </div>
               <button
-                onClick={() => { setEditingRetailer(null); setRetailerForm({ name: '', username: '', password: '', retail_pin: '' }); setShowRetailerForm(true); }}
+                onClick={() => { setEditingRetailer(null); setRetailerForm({ name: '', username: '', password: '', retail_pin: '', mobile: '' }); setShowRetailerForm(true); }}
                 className="btn-primary"
               >
                 + Add Retailer
@@ -508,7 +546,7 @@ export default function AdminDashboard() {
                       <td>
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => { setEditingRetailer(r); setRetailerForm({ name: r.name, username: r.username, password: '', retail_pin: '' }); setShowRetailerForm(true); }}
+                            onClick={() => { setEditingRetailer(r); setRetailerForm({ name: r.name, username: r.username, password: '', retail_pin: '', mobile: r.mobile || '' }); setShowRetailerForm(true); }}
                             className="px-3 py-1 text-xs border border-surface-4 hover:border-brand-300 hover:text-brand-600 rounded-lg transition-colors text-ink-muted"
                           >
                             Edit
@@ -816,6 +854,15 @@ export default function AdminDashboard() {
                   className="form-input"
                 />
               </div>
+              <div>
+                <label className="form-label">Mobile Number</label>
+                <input
+                  value={retailerForm.mobile}
+                  onChange={(e) => setRetailerForm((f) => ({ ...f, mobile: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                  placeholder="10-digit retailer mobile"
+                  className="form-input"
+                />
+              </div>
               {!editingRetailer && (
                 <div>
                   <label className="form-label">Username <span className="text-brand-600">*</span></label>
@@ -868,6 +915,37 @@ export default function AdminDashboard() {
                 <button type="submit" className="btn-primary flex-1">{editingRetailer ? 'Update Retailer' : 'Create Retailer'}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showSettlementModal && selectedCustomer && breakdown && (
+        <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && setShowSettlementModal(false)}>
+          <div className="card w-full max-w-md p-6 animate-slide-up">
+            <h3 className="font-display text-xl font-bold text-warning mb-2">⚠ Settle Customer</h3>
+            <p className="text-sm text-ink-muted mb-4">This will move customer to EMI COMPLETE and mark as SETTLED.</p>
+            <div className="card bg-surface-2 p-3 mb-4 space-y-1 text-sm">
+              <div className="flex justify-between"><span>Fine Due</span><span className="num">{fmt(breakdown.fine_due || 0)}</span></div>
+              <div className="flex justify-between"><span>Pending 1st EMI</span><span className="num">{fmt(breakdown.first_emi_charge_due || 0)}</span></div>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="form-label">Settlement Amount Collected *</label>
+                <input className="form-input" inputMode="decimal" value={settlementAmount} onChange={(e) => setSettlementAmount(e.target.value.replace(/[^\d.]/g, ''))} />
+              </div>
+              <div>
+                <label className="form-label">Settlement Date *</label>
+                <input className="form-input" type="date" value={settlementDate} onChange={(e) => setSettlementDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="form-label">Note / Reason (optional)</label>
+                <textarea className="form-input resize-none" rows={3} value={settlementNote} onChange={(e) => setSettlementNote(e.target.value)} />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button className="btn-ghost flex-1" onClick={() => setShowSettlementModal(false)}>Cancel</button>
+              <button className="btn-warning flex-1" onClick={handleSettlement}>Confirm Settlement</button>
+            </div>
           </div>
         </div>
       )}
