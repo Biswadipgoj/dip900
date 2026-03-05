@@ -53,8 +53,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Mobile must be exactly 10 digits' }, { status: 400 });
   }
 
-  const serviceClient = createServiceClient();
-
   let query = serviceClient
     .from('customers')
     .select(`
