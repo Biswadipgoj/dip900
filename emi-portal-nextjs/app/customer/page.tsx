@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Customer, EMISchedule, DueBreakdown } from '@/lib/types';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -17,6 +17,36 @@ export default function CustomerPortal() {
   const [emis, setEmis] = useState<EMISchedule[]>([]);
   const [breakdown, setBreakdown] = useState<DueBreakdown | null>(null);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [showDueSoon, setShowDueSoon] = useState(false);
+
+
+  useEffect(() => {
+    const saved = localStorage.getItem('customer_portal_session');
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved) as { customer: Customer; emis: EMISchedule[]; breakdown: DueBreakdown | null };
+      setCustomer(parsed.customer);
+      setEmis(parsed.emis || []);
+      setBreakdown(parsed.breakdown || null);
+      setLoggedIn(true);
+    } catch {
+      localStorage.removeItem('customer_portal_session');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!loggedIn || !customer) return;
+    localStorage.setItem('customer_portal_session', JSON.stringify({ customer, emis, breakdown }));
+
+    const dueDate = breakdown?.next_emi_due_date ? new Date(breakdown.next_emi_due_date) : null;
+    if (!dueDate) {
+      setShowDueSoon(false);
+      return;
+    }
+    const now = new Date();
+    const diffDays = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    setShowDueSoon(diffDays >= 0 && diffDays <= 5);
+  }, [loggedIn, customer, emis, breakdown]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -48,6 +78,7 @@ export default function CustomerPortal() {
     setBreakdown(null);
     setAadhaar('');
     setMobile('');
+    localStorage.removeItem('customer_portal_session');
   }
 
   const paidEmis = emis.filter(e => e.status === 'APPROVED');
@@ -175,7 +206,16 @@ export default function CustomerPortal() {
           </div>
         )}
 
+        {showDueSoon && breakdown && (
+          <div className="alert-warning animate-fade-in">
+            <p className="font-semibold">EMI due in next 5 days</p>
+            <p className="text-sm mt-1">Due date: {breakdown.next_emi_due_date ? format(new Date(breakdown.next_emi_due_date), 'd MMM yyyy') : '-'}</p>
+            <p className="text-sm mt-1">Breakdown: EMI {fmt(breakdown.next_emi_amount || 0)} + Fine {fmt(breakdown.fine_due || 0)} + 1st Charge {fmt(breakdown.first_emi_charge_due || 0)}</p>
+          </div>
+        )}
+
         {/* Profile card */}
+
         <div className="card overflow-hidden">
           <div className="flex items-start gap-4 p-5">
             {customer?.customer_photo_url ? (

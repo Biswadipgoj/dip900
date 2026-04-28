@@ -161,7 +161,7 @@ export default function CustomerDetailPanel({ customer, paidCount, totalEmis, is
             </div>
 
             {/* Admin NOC/Bill */}
-            {isAdmin && (
+            {isAdmin && customer.status === 'COMPLETE' && (
               <>
                 <a href={`/api/noc/${customer.id}`}
                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-info-border bg-info-light text-info text-xs font-medium hover:opacity-80 transition-opacity">

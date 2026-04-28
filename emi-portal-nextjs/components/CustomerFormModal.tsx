@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Customer, Retailer } from '@/lib/types';
-import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
 
 interface CustomerFormModalProps {
@@ -53,7 +52,6 @@ function isValidUrl(url: string) {
 export default function CustomerFormModal({
   customer, retailers, onClose, onSaved, isAdmin,
 }: CustomerFormModalProps) {
-  const supabase = createClient();
   const [form, setForm] = useState<FormData>({ ...EMPTY });
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<TabKey>('info');
@@ -231,15 +229,14 @@ export default function CustomerFormModal({
     };
 
     try {
-      let error;
-      if (customer) {
-        ({ error } = await supabase.from('customers').update(payload).eq('id', customer.id));
-      } else {
-        ({ error } = await supabase.from('customers').insert(payload));
-      }
-      if (error) {
-        if (error.code === '23505') toast.error('This IMEI already exists in the system');
-        else toast.error(error.message);
+      const res = await fetch('/api/customers', {
+        method: customer ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(customer ? { ...payload, id: customer.id } : payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to save customer');
       } else {
         toast.success(customer ? 'Customer updated!' : 'Customer created!');
         onSaved();
