@@ -46,3 +46,19 @@ WITH CHECK (
       AND p.role = 'super_admin'
   )
 );
+
+-- Payment request compatibility fields for mixed collection flows
+ALTER TABLE payment_requests ADD COLUMN IF NOT EXISTS emi_no INT;
+ALTER TABLE payment_requests ADD COLUMN IF NOT EXISTS scheduled_emi_amount NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE payment_requests ADD COLUMN IF NOT EXISTS emi_paid NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE payment_requests ADD COLUMN IF NOT EXISTS fine_paid NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE payment_requests ADD COLUMN IF NOT EXISTS first_emi_charge_paid NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE payment_requests ADD COLUMN IF NOT EXISTS total_paid NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE payment_requests ADD COLUMN IF NOT EXISTS fine_for_emi_no INT;
+ALTER TABLE payment_requests ADD COLUMN IF NOT EXISTS fine_due_date DATE;
+ALTER TABLE payment_requests ADD COLUMN IF NOT EXISTS collected_by_role TEXT;
+ALTER TABLE payment_requests ADD COLUMN IF NOT EXISTS collected_by_user_id UUID;
+
+ALTER TABLE payment_requests DROP CONSTRAINT IF EXISTS payment_requests_status_check;
+ALTER TABLE payment_requests ADD CONSTRAINT payment_requests_status_check
+CHECK (status IN ('PENDING','APPROVED','REJECTED'));
